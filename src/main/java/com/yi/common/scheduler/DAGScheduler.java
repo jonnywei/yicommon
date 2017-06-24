@@ -2,42 +2,41 @@ package com.yi.common.scheduler;
 
 import com.yi.common.ds.DAG;
 
-import java.util.List;
 import java.util.concurrent.*;
 
 /**
  * Created by wjj on 6/23/17.
  */
-public class DAGScheduler {
+public class DAGScheduler<T extends Callable<V>, V> {
 
     ExecutorService executor = Executors.newCachedThreadPool();
 
     public int timeout = 20;
 
-    DAG<DAGTask> dag ;
+    DAG<T,V > dag ;
 
-    public DAGScheduler(DAG<DAGTask> dag) {
+    public DAGScheduler(DAG<T,V> dag) {
         this.dag = dag;
         //增加当前信号量
-        dag.visitDAG(new DAG.VisitFn<DAGTask>() {
+        dag.visitDAG(new DAG.VisitFn<T,V>() {
             @Override
-            public Object apply(DAG.Node<DAGTask> node) {
-                int psize = node.parents.size();
+            public Object apply(DAGTaskNode<T,V> node) {
+                 int psize = node.parents.size();
                 if(psize ==0){
-                    node.vertex.semaphore =null;
+                    node.semaphore =null;
                 }else {
-                    node.vertex.semaphore = new CountDownLatch(psize);
+                    node.semaphore = new CountDownLatch(psize);
                 }
-
+                node.executor = executor; //设置执行器
                 return null;
             }
         } );
         //增加孩子信号量
-        dag.visitDAG(new DAG.VisitFn<DAGTask>() {
+        dag.visitDAG(new DAG.VisitFn<T,V>() {
             @Override
-            public Object apply(DAG.Node<DAGTask> node) {
-                for(DAG.Node<DAGTask> child : node.successors) {
-                    node.vertex.addChildSemphore(child.vertex.semaphore);
+            public Object apply(DAGTaskNode<T,V> node) {
+                for(Object child : node.successors) {
+                    node.addChildSemphore(((DAGTaskNode<T,V>)child).semaphore);
                 }
 
                 return null;
@@ -45,19 +44,38 @@ public class DAGScheduler {
         } );
     }
 
-    public void schedule( DAGTask current){
+    public Future<V>  schedule( T current)  {
         //
 //        List<Future>
        //添加任务执行
-        dag.dfsDAG(new DAG.VisitFn<DAGTask>() {
+        DAGTaskNode<T,V> dagTaskNode = dag.getNode(current);
+        dag.dfsDAG(new DAG.VisitFn<T,V>() {
             @Override
-            public Object apply(DAG.Node<DAGTask> node) {
-                Future future = executor.submit(node.vertex);
+            public Object apply(DAGTaskNode<T,V>  node) {
+                Future future = executor.submit(node);
                 return null;
             }
-        },dag.getNode(current));
+        },dagTaskNode);
+       return dagTaskNode.futureTask;
 
     }
+
+    public Future<V>  scheduleWait( T current)  {
+        //
+//        List<Future>
+        //添加任务执行
+        DAGTaskNode<T,V> dagTaskNode = dag.getNode(current);
+        dag.dfsDAG(new DAG.VisitFn<T,V>() {
+            @Override
+            public Object apply(DAGTaskNode<T,V>  node) {
+                Future future = executor.submit(node);
+                return null;
+            }
+        },dagTaskNode);
+        return dagTaskNode.futureTask;
+
+    }
+
 
     public void awitTermination(){
         try {

@@ -1,36 +1,54 @@
 package com.yi.common.scheduler;
 
+import com.sun.org.apache.xalan.internal.utils.FeatureManager;
 import com.yi.common.ds.DAG;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 
 /**
  * Created by wjj on 6/23/17.
  */
 public class DAGSchedulerTest {
 
-    Callable callable = new Callable() {
-        @Override
-        public Object call() throws Exception {
-            Random random = new Random();
-            Thread.sleep(random.nextInt(20) * 1000);
-            return  null;
+    public class SleepTask implements Callable<String>{
+        
+        private String name;
+
+        public SleepTask(String name) {
+            this.name = name;
         }
-    };
 
-    DAG<DAGTask> dag = new DAG<>();
-    DAGTask i= new DAGTask("i",callable);
-    DAGTask k= new DAGTask("k",callable);
+        @Override
+        public String call() throws Exception {
+            Random random = new Random();
+            System.out.println(name +" sleep ");
+            Thread.sleep(random.nextInt(20) * 1000);
+            return  name;
+        }
 
-    DAGTask x= new DAGTask("x",callable);
-    DAGTask y= new DAGTask("y",callable);
+        @Override
+        public String toString() {
+            return "SleepTask{" +
+                    "name='" + name + '\'' +
+                    '}';
+        }
+    }
+    
+
+    DAG<SleepTask,String> dag = new DAG<>();
+    SleepTask i= new SleepTask("i");
+    SleepTask k= new SleepTask("k");
+
+    SleepTask x= new SleepTask("x");
+    SleepTask y= new SleepTask("y");
 
 
-    DAGTask u= new DAGTask("u",callable);
-    DAGTask v= new DAGTask("v",callable);
+    SleepTask u= new SleepTask("u");
+    SleepTask v= new SleepTask("v");
 
 
 
@@ -38,18 +56,20 @@ public class DAGSchedulerTest {
     @Test
     public  void  runTest(){
 
-        DAGScheduler dagScheduler = new DAGScheduler(dag);
+        DAGScheduler<SleepTask,String> dagScheduler = new DAGScheduler(dag);
 
 
         try {
-            dagScheduler.schedule(i);
+          Future<String> result =  dagScheduler.schedule(i);
+          String value =result.get();
+          System.out.println("result="+value);
 //            Thread.sleep(10000000);
-            dagScheduler.schedule(k);
-            dagScheduler.schedule(v);
-            dagScheduler.schedule(x);
-            dagScheduler.schedule(y);
+//            dagScheduler.schedule(k);
+//            dagScheduler.schedule(v);
+//            dagScheduler.schedule(x);
+//            dagScheduler.schedule(y);
 
-            dagScheduler.awitTermination();
+//            dagScheduler.awitTermination();
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -57,15 +77,15 @@ public class DAGSchedulerTest {
     }
     @Before
     public  void  buildTaskDAG(){
-        DAGTask a= new DAGTask("a",callable);
-        DAGTask b= new DAGTask("b",callable);
-        DAGTask c= new DAGTask("c",callable);
-        DAGTask d= new DAGTask("d",callable);
-        DAGTask e= new DAGTask("e",callable);
-        DAGTask f= new DAGTask("f",callable);
-        DAGTask g= new DAGTask("g",callable);
-        DAGTask h= new DAGTask("h",callable);
-        DAGTask j= new DAGTask("j",callable);
+        SleepTask a= new SleepTask("a");
+        SleepTask b= new SleepTask("b");
+        SleepTask c= new SleepTask("c");
+        SleepTask d= new SleepTask("d");
+        SleepTask e= new SleepTask("e");
+        SleepTask f= new SleepTask("f");
+        SleepTask g= new SleepTask("g");
+        SleepTask h= new SleepTask("h");
+        SleepTask j= new SleepTask("j");
 
         dag.addEdge(new DAG.Edge(h,i));
         dag.addEdge(new DAG.Edge(a,b));
